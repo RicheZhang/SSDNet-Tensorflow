@@ -32,7 +32,7 @@ def fcLayer(x, inputD, outputD, reluFlag, name):
 
 def convLayer(x, kHeight, kWidth, strideX, strideY,
               featureNum, name, padding = "SAME"):
-    """convlutional"""
+    """convolution"""
     channel = int(x.get_shape()[-1])
     with tf.variable_scope(name) as scope:
         w = tf.get_variable("w", shape = [kHeight, kWidth, channel, featureNum])
@@ -71,16 +71,16 @@ class VGG19(object):
         conv4_1 = convLayer(pool3, 3, 3, 1, 1, 512, "conv4_1")
         conv4_2 = convLayer(conv4_1, 3, 3, 1, 1, 512, "conv4_2")
         conv4_3 = convLayer(conv4_2, 3, 3, 1, 1, 512, "conv4_3")
-        conv4_4 = convLayer(conv4_3, 3, 3, 1, 1, 512, "conv4_4")
-        pool4 = maxPoolLayer(conv4_4, 2, 2, 2, 2, "pool4")
+        self.conv4_4 = convLayer(conv4_3, 3, 3, 1, 1, 512, "conv4_4")
+        pool4 = maxPoolLayer(self.conv4_4, 2, 2, 2, 2, "pool4")
 
         conv5_1 = convLayer(pool4, 3, 3, 1, 1, 512, "conv5_1")
         conv5_2 = convLayer(conv5_1, 3, 3, 1, 1, 512, "conv5_2")
         conv5_3 = convLayer(conv5_2, 3, 3, 1, 1, 512, "conv5_3")
-        conv5_4 = convLayer(conv5_3, 3, 3, 1, 1, 512, "conv5_4")
+        self.conv5_4 = convLayer(conv5_3, 3, 3, 1, 1, 512, "conv5_4")
 
         """
-        #pool5 = maxPoolLayer(conv5_4, 2, 2, 2, 2, "pool5")
+        pool5 = maxPoolLayer(conv5_4, 2, 2, 2, 2, "pool5")
         #SSD don't have fcLayers
         
         fcIn = tf.reshape(pool5, [-1, 7*7*512])
