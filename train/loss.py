@@ -6,6 +6,7 @@
    e-mail: huangjipengnju@gmail.com
    github: https://github.com/hjptriplebee
 '''''''''''''''''''''''''''''''''''''''''''''''''''''
+#Loss definition
 import tensorflow as tf
 from config import *
 def smoothL1(x):

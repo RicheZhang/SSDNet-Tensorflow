@@ -6,6 +6,7 @@
    e-mail: huangjipengnju@gmail.com
    github: https://github.com/hjptriplebee
 '''''''''''''''''''''''''''''''''''''''''''''''''''''
+#VGG for SSD
 import tensorflow as tf
 import numpy as np
 # define different layer functions

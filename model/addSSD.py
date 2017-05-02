@@ -6,8 +6,10 @@
    e-mail: huangjipengnju@gmail.com
    github: https://github.com/hjptriplebee
 '''''''''''''''''''''''''''''''''''''''''''''''''''''
+#box definition and additional layer for SSD
 import tensorflow as tf
-
+import numpy as np
+from config import *
 #additional part for SSD, including BN and convolution
 def batchNorm(x, train_phase, decay=0.9, eps=1e-5):
     """batch normalization"""
@@ -51,3 +53,44 @@ def convLayerSSD(x, train, kHeight, kWidth, strideX, strideY,
             return tf.nn.relu(bn, name = scope.name)
         else:
             return bn
+
+def boxScale(k):
+    """calculate box scale"""
+    m = 6.0
+    sk = sMin + (sMax - sMin) * (k - 1.0) / (m - 1)
+    return sk
+
+def defaultBox(shapes):
+    """generate default box"""
+    boxes = []
+    for index, shape in enumerate(shapes):
+        layerBoxes = []
+        sk = boxScale(index + 1)
+        sk1 = boxScale(index + 2)
+        for x in range(shape[1]):
+            xBoxes = []
+            for t in range(shape[2]):
+                yBoxes = []
+                #ratios
+                if index == 0: #conv4_3
+                    rs = conv4_3Ratios
+                else:
+                    rs = boxRatios
+                for i in range(len(rs)):
+                    if index == 0:
+                        scale = conv4_3Scale
+                    else:
+                        scale = sk
+                        #additional scale when ratios == 1
+                        if i == 0:
+                            scale = np.sqrt(sk * sk1)
+                    width = scale * np.sqrt(rs[i])
+                    height = scale / np.sqrt(rs[i])
+                    #box center
+                    centerX = (x + 0.5) / float(shape[1])
+                    centerY = (x + 0.5) / float(shape[2])
+                    yBoxes.append([centerX, centerY, width, height])
+                xBoxes.append(yBoxes)
+            layerBoxes.append(xBoxes)
+        boxes.append(layerBoxes)
+    return boxes

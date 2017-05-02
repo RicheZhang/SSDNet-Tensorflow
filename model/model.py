@@ -6,6 +6,7 @@
    e-mail: huangjipengnju@gmail.com
    github: https://github.com/hjptriplebee
 '''''''''''''''''''''''''''''''''''''''''''''''''''''
+#SSD model
 import tensorflow as tf
 import vgg.vggSSD as vggSSD
 import model.addSSD as addSSD
