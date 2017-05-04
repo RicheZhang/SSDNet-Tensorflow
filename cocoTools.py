@@ -6,8 +6,7 @@
    e-mail: huangjipengnju@gmail.com
    github: https://github.com/hjptriplebee
 '''''''''''''''''''''''''''''''''''''''''''''''''''''
-#from seann999 coco_loader.py
-import pycocotools
+#based on seann999 coco_loader.py, used for reading coco dataset
 from pycocotools.coco import COCO
 import numpy as np
 import os
@@ -15,18 +14,18 @@ import skimage.io as io
 import cv2
 import random
 import skimage.transform
-from constants import image_size, classes
-from ssd_common import draw_ann
+from config import inputSize, classNum
+from tinyFunctions import drawResult
 import threading
 import tensorflow as tf
 
 FLAGS = tf.app.flags.FLAGS
 
-train_ann_file = "/media/sean/HDCL-UT1/mscoco/annotations/instances_train2014.json"
-train_dir = "/media/sean/HDCL-UT1/mscoco/train2014"
+train_ann_file = "~/deepLearning/dataset/coco/annotations/instances_train2014.json"
+train_dir = "~/deepLearning/dataset/coco/train2014"
 
-val_ann_file = "/media/sean/HDCL-UT1/mscoco/annotations/instances_val2014.json"
-val_dir = "/media/sean/HDCL-UT1/mscoco/val2014"
+val_ann_file = "~/deepLearning/dataset/coco/annotations/instances_val2014.json"
+val_dir = "~/deepLearning/dataset/coco/val2014"
 
 class Loader:
     def __init__(self, train=True):
@@ -46,8 +45,8 @@ class Loader:
         # i is actual index used
         id2name = dict((cat["id"], cat["name"]) for cat in cats)
         self.id2i = dict((cats[i]['id'], i) for i in range(len(cats)))
-        self.i2name = {v: id2name[k] for k, v in self.id2i.iteritems()}
-        self.i2name[classes] = "void"
+        self.i2name = {v: id2name[k] for k, v in self.id2i.items()}
+        self.i2name[classNum] = "void"
 
         print("NUMBER OF CLASSES: %i" % len(id2name))
 
@@ -104,7 +103,7 @@ class Loader:
                     box[1] -= p_y
 
             # warning: this function turns 255 -> 1.0
-            resized_img = skimage.transform.resize(sample, (image_size, image_size))
+            resized_img = skimage.transform.resize(sample, (inputSize, inputSize))
 
             for box, id in anns:
                 scaleX = 1.0 / float(sample.shape[1])
@@ -201,7 +200,7 @@ if __name__ == "__main__":
         I = imgs[0] * 255.0
 
         for box_coords, id in anns[0]:
-            draw_ann(I, box_coords, loader.i2name[id])
+            drawResult(I, box_coords, loader.i2name[id])
 
         I = cv2.cvtColor(I.astype(np.uint8), cv2.COLOR_RGB2BGR)
         cv2.imshow("original image", cv2.cvtColor(b[0][0], cv2.COLOR_RGB2BGR))
