@@ -94,3 +94,34 @@ def defaultBox(shapes):
             layerBoxes.append(xBoxes)
         boxes.append(layerBoxes)
     return boxes
+
+def formatOutput(labels, bBoxes):
+    """add bBoxes increment, return boxes and max confidence info"""
+    #every layer, every position, every default box
+    boxes = [
+        [[[None for i in range(layerBoxesNum[o])] for x in range(outShapes[o][1])] for y in range(outShapes[o][2])]
+        for o in range(len(layerBoxesNum))]
+    confidences = []
+    index = 0
+    for o_i in range(len(layerBoxesNum)):
+        for y in range(outShapes[o_i][2]):
+            for x in range(outShapes[o_i][1]):
+                for i in range(layerBoxesNum[o_i]):
+                    diffs = bBoxes[index]
+                    w = defaults[o_i][x][y][i][2] + diffs[2]
+                    h = defaults[o_i][x][y][i][3] + diffs[3]
+                    c_x = defaults[o_i][x][y][i][0] + diffs[0]
+                    c_y = defaults[o_i][x][y][i][1] + diffs[1]
+
+                    boxes[o_i][x][y][i] = [c_x, c_y, w, h]
+                    logits = labels[index]
+                    # indices, max probability, corresponding label
+                    info = (
+                    [o_i, x, y, i], np.amax(np.exp(logits) / (np.sum(np.exp(logits)) + 1e-3)), np.argmax(logits))
+
+                    if len(confidences) < index + 1:
+                        confidences.append(info)
+                    else:
+                        confidences[index] = info
+                    index += 1
+    return boxes, confidences

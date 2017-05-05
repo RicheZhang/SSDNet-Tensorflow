@@ -11,11 +11,14 @@ import tensorflow as tf
 import cv2
 import pickle
 import config
+import time
+import signal
+import sys
+import cocoTools as coco
 import model.model as model
 import model.addSSD as addSSD
 import train.loss as loss
 import tinyFunctions
-from tinyFunctions import drawResult
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -60,19 +63,100 @@ class SSD:
     def singleImage(self, sample):
         """single image test"""
         dst = cv2.resize(sample, (config.inputSize, config.inputSize))
-        labels, bBoxes, step = self.sess.run([self.labels, self.bBoxes, self.global_step],
+        labelsGroup, bBoxesIncrement, step = self.sess.run([self.labels, self.bBoxes, self.global_step],
                                              feed_dict = {self.images: dst, self.bn: False})
-        tinyFunctions.formatOutput(labels, bBoxes)
+        bBoxes, confidences = addSSD.formatOutput(labelsGroup, bBoxesIncrement)
+        tinyFunctions.resizeBoxes(dst, sample, bBoxes)
+        return filterBox(bBoxes, confidences)
+
+def filterBox(bBoxes, confidences):
+    """NMS and filter boxes with low confidence"""
+    filtered = []
+    for box, c, label in confidences:
+        #not background
+        if c >= config.confidence and label != config.classNum:
+            coords = bBoxes[box[0]][box[1]][box[2]][box[3]]
+            coords = tinyFunctions.centerToCorner(coords)
+            filtered.append((coords, c, label))
+    return tinyFunctions.NMS(filtered, config.nmsIOU, config.nmsNum)
 
 def train():
     """train model"""
+    ssd =SSD()
+    t = time.time()
+    step = 0
+
+    def signalHandle(sigNum, frame):
+        """define SIGINT action"""
+        print("Ctrl + c, training stopped!")
+        ssd.saver.save(ssd.sess, "%s/ckpt" % FLAGS.modleDir, step)
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signalHandle)
+
+    summaryWriter = tf.summary.FileWriter(FLAGS.modelDir)
+    boxMatcher = matcher()
+
+    trainLoader = coco.Loader(True)
+    i2name = trainLoader.i2name
+    trainBatches = trainLoader.create_batches(FLAGS.batchSize, shuffle = True)
+
+    while True:
+        batch = trainBatches.next()
+        images, annotations = trainLoader.preprocess_batch(batch)
+        labelsGroup, bBoxesIncrement, step = ssd.sess.run([ssd.labels, ssd.bBoxes, ssd.global_step],
+                                                           feed_dict={ssd.images: images, ssd.bn: False})
+        batchValue = [None for i in range(FLAGS.batchSize)]
+
+
+        #################################################
+
+
+        #################################################
+
+
+
+
+        if step < 2000:
+            learningRate = 1e-3
+        elif step < 40000:
+            learningRate = 1e-4
+        else:
+            learningRate = 1e-5
+
+        temp, classLoss, bBoxesLoss, totalLoss, step = ssd.sess.run(
+            [ssd.optimizer, ssd.classLoss, ssd.bBoxesLoss, ssd.totalLoss, ssd.global_step],
+            feed_dict = {ssd.images: images, ssd.bn: True,
+                         ssd.pos: positives_f, ssd.neg: negatives_f,
+                         ssd.groundTruthLabels: true_labels_f, ssd.groundTruthBBoxes: true_locs_f,
+                         ssd.learningRate: learningRate})
+
+        t = time.time() - t
+        print("%i: %f (%f secs)" % (step, totalLoss, t))
+        t = time.time()
+
+        summary_float(step, "loss", totalLoss, summaryWriter)
+        summary_float(step, "class loss", classLoss, summaryWriter)
+        summary_float(step, "bBox loss", bBoxesLoss, summaryWriter)
+
+        if step % 1000 == 0:
+            ssd.saver.save(ssd.sess, "%s/ckpt" % FLAGS.model_dir, step)
+
+def summary_float(step, name, value, summaryWriter):
+    """add summary"""
+    summary = tf.Summary(value=[tf.Summary.Value(tag=name, simple_value=float(value))])
+    summaryWriter.add_summary(summary, global_step=step)
 
 def test(path):
     """test model"""
     testSample = cv2.imread(path)
     ssd = SSD()
-    bBoxes, score = ssd.singleImage(testSample)
-
+    filtered = ssd.singleImage(testSample)
+    for box, conf, label in filtered:
+        col = tuple((255.0 / config.classNum * label, 255, 255))
+        tinyFunctions.drawResult(testSample, box, i2name[label], col, conf)
+    cv2.imshow("demo", testSample)
+    cv2.waitKey(0)
 
 
 if __name__ == "__main__":

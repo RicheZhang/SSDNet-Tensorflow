@@ -7,8 +7,9 @@
    github: https://github.com/hjptriplebee
 '''''''''''''''''''''''''''''''''''''''''''''''''''''
 #some tiny functions, such as NMS, IOU...
+import numpy as np
 import cv2
-from config import inputSize
+from config import inputSize, layerBoxesNum, outShapes
 def drawBBox(I, r, color, thickness=1):
     """drawBBox: image, point, color, thickness"""
     if abs(sum(r)) < 100: # conditional to prevent min/max error
@@ -28,5 +29,56 @@ def drawResult(I, r, text, color=(255, 0, 255), confidence=-1):
 
     cv2.putText(I, ann, (int(r[0] * inputSize), int((r[1]) * inputSize)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0))
 
-def formatOutput(labels, bBoxes, ):
+def resizeBoxes(resized, original, boxes):
+    """resize boxes on resized image to boxes on origin image"""
+    scale_x = original.shape[1] / float(resized.shape[1])
+    scale_y = original.shape[0] / float(resized.shape[0])
 
+    for o in range(len(layerBoxesNum)):
+        for y in range(outShapes[o][2]):
+            for x in range(outShapes[o][1]):
+                for i in range(layerBoxesNum[o]):
+                    boxes[o][x][y][i][0] *= scale_x
+                    boxes[o][x][y][i][1] *= scale_y
+                    boxes[o][x][y][i][2] *= scale_x
+                    boxes[o][x][y][i][3] *= scale_y
+
+def clipBox(box):
+    """prevent negative width and height"""
+    return [box[0], box[1], max(box[2], 0.01), max(box[3], 0.01)]
+
+def calIOU(box1, box2):
+    """IOU"""
+    a = clipBox(box1)
+    b = clipBox(box2)
+    left = max(a[0], b[0])
+    right = min(a[0] + a[2], b[0] + b[2])
+    top = max(a[1], b[1])
+    bottom = max(a[1] + a[3], b[1] + b[3])
+    ab = 0
+    if left < right and top < bottom:
+        ab = (right - left) * (bottom - top)
+    return ab / (a[2] * a[3] + b[2] * b[3] -ab)
+
+def NMS(boxes, threshold, nums):
+    """NMS"""
+    filtered = []
+    for box, conf, label in boxes:
+        if len(filtered) >= nums:
+            break
+        can = True
+        for box2, conf2, label2 in filtered:
+            if label == label2 and calIOU(box, box2) > threshold:
+                can = False
+                break
+        if can:
+            filtered.append((box, conf, label))
+    return filtered
+
+def centerToCorner(rect):
+    """box center to box corner"""
+    return [rect[0] - rect[2]/2.0, rect[1] - rect[3]/2.0, rect[2], rect[3]]
+
+def cornerToCenter(rect):
+    """box corner to box center"""
+    return [rect[0] + rect[2]/2.0, rect[1] + rect[3]/2.0, rect[2], rect[3]]
