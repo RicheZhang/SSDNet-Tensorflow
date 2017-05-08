@@ -106,7 +106,7 @@ def train():
         images, annotations = trainLoader.preprocess_batch(batch)
         labelsGroup, bBoxesIncrement, step = ssd.sess.run([ssd.labels, ssd.bBoxes, ssd.global_step],
                                                            feed_dict={ssd.images: images, ssd.bn: False})
-        batchValue = [None for i in range(FLAGS.batchSize)]
+        batchValues = [None for i in range(FLAGS.batchSize)]
 
 
         #################################################
@@ -135,14 +135,14 @@ def train():
         print("%i: %f (%f secs)" % (step, totalLoss, t))
         t = time.time()
 
-        summary_float(step, "loss", totalLoss, summaryWriter)
-        summary_float(step, "class loss", classLoss, summaryWriter)
-        summary_float(step, "bBox loss", bBoxesLoss, summaryWriter)
+        summaryFloat(step, "loss", totalLoss, summaryWriter)
+        summaryFloat(step, "class loss", classLoss, summaryWriter)
+        summaryFloat(step, "bBox loss", bBoxesLoss, summaryWriter)
 
         if step % 1000 == 0:
             ssd.saver.save(ssd.sess, "%s/ckpt" % FLAGS.model_dir, step)
 
-def summary_float(step, name, value, summaryWriter):
+def summaryFloat(step, name, value, summaryWriter):
     """add summary"""
     summary = tf.Summary(value=[tf.Summary.Value(tag=name, simple_value=float(value))])
     summaryWriter.add_summary(summary, global_step=step)
