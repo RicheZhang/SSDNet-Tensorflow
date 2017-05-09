@@ -8,6 +8,7 @@
 '''''''''''''''''''''''''''''''''''''''''''''''''''''
 #SSD trainer
 import tensorflow as tf
+import numpy as np
 import cv2
 import pickle
 import config
@@ -18,7 +19,9 @@ import cocoTools as coco
 import model.model as model
 import model.addSSD as addSSD
 import train.loss as loss
+import train.matcher as matcher
 import tinyFunctions
+
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -95,11 +98,11 @@ def train():
     signal.signal(signal.SIGINT, signalHandle)
 
     summaryWriter = tf.summary.FileWriter(FLAGS.modelDir)
-    boxMatcher = matcher()
 
     trainLoader = coco.Loader(True)
     i2name = trainLoader.i2name
     trainBatches = trainLoader.create_batches(FLAGS.batchSize, shuffle = True)
+    boxMatcher = matcher.matcher()
 
     while True:
         batch = trainBatches.next()
@@ -108,13 +111,16 @@ def train():
                                                            feed_dict={ssd.images: images, ssd.bn: False})
         batchValues = [None for i in range(FLAGS.batchSize)]
 
+        def matchBoxes(index):
+            """get matches matrix and change the matrix to the format of feeding data"""
+            matches = boxMatcher.matchBoxes(labelsGroup[index], annotations[index])
+            posFeed, negFeed, groundTruthLabelFeed, groundTruthBoxFeed = prepareFeed(matches)
+            batchValues[index] = (posFeed, negFeed, groundTruthLabelFeed, groundTruthBoxFeed)
 
-        #################################################
+        for index in range(FLAGS.batchSize):
+            matchBoxes(index)
 
-
-        #################################################
-
-
+        posFeed, negFeed, groundTruthLabelFeed, groundTruthBoxFeed = [np.stack(m) for m in zip(*batchValues)]
 
 
         if step < 2000:
@@ -126,9 +132,8 @@ def train():
 
         temp, classLoss, bBoxesLoss, totalLoss, step = ssd.sess.run(
             [ssd.optimizer, ssd.classLoss, ssd.bBoxesLoss, ssd.totalLoss, ssd.global_step],
-            feed_dict = {ssd.images: images, ssd.bn: True,
-                         ssd.pos: positives_f, ssd.neg: negatives_f,
-                         ssd.groundTruthLabels: true_labels_f, ssd.groundTruthBBoxes: true_locs_f,
+            feed_dict = {ssd.images: images, ssd.bn: True, ssd.pos: posFeed, ssd.neg: negFeed,
+                         ssd.groundTruthLabels: groundTruthLabelFeed, ssd.groundTruthBBoxes: groundTruthBoxFeed,
                          ssd.learningRate: learningRate})
 
         t = time.time() - t
@@ -141,6 +146,38 @@ def train():
 
         if step % 1000 == 0:
             ssd.saver.save(ssd.sess, "%s/ckpt" % FLAGS.model_dir, step)
+
+def prepareFeed(matches):
+    """matches matrix to sample array"""
+    pos = []
+    neg = []
+    groundTruthLabel = []
+    groundTruthBox = []
+    for o in range(len(config.layerBoxesNum)):
+        for y in range(config.outShapes[o][2]):
+            for x in range(config.outShapes[o][1]):
+                for i in range(config.layerBoxesNum[o]):
+                    match = matches[o][x][y][i]
+                    # there is a ground truth assigned to this default box
+                    if isinstance(match, tuple):
+                        pos.append(1)
+                        neg.append(0)
+                        groundTruthLabel.append(match[1])
+                        default = config.defaults[o][x][y][i]
+                        groundTruthBox.append(tinyFunctions.calOffset(default, tinyFunctions.cornerToCenter(match[0])))
+                    # this default box was chosen to be a negative
+                    elif match == -1:
+                        pos.append(0)
+                        neg.append(1)
+                        groundTruthLabel.append(config.classNum)  # background ID
+                        groundTruthBox.append([0] * 4)
+                    # no influence for this training step
+                    else:
+                        pos.append(0)
+                        neg.append(0)
+                        groundTruthLabel.append(config.classNum)  # background ID
+                        groundTruthBox.append([0] * 4)
+    return np.asarray(pos), np.asarray(neg), np.asarray(groundTruthLabel), np.asarray(groundTruthBox)
 
 def summaryFloat(step, name, value, summaryWriter):
     """add summary"""

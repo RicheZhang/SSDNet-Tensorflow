@@ -10,6 +10,10 @@
 import numpy as np
 import cv2
 from config import inputSize, layerBoxesNum, outShapes
+def calOffset(default, truth):
+    """cal offset between box1 and box2"""
+    return [truth[0] - default[0], truth[1] - default[1], truth[2] - default[2], truth[3] - default[3]]
+
 def drawBBox(I, r, color, thickness=1):
     """drawBBox: image, point, color, thickness"""
     if abs(sum(r)) < 100: # conditional to prevent min/max error

@@ -17,4 +17,5 @@ defaults = None
 
 confidence = 0.1
 nmsIOU = 0.5
+thresholdIOU = 0.5
 nmsNum = 300
