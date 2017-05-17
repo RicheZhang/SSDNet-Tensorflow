@@ -28,7 +28,7 @@ FLAGS = flags.FLAGS
 i2name = pickle.load(open("i2name.p", "rb"))
 
 class SSD:
-    def __init__(self, modelDir = FLAGS.modelDir):
+    def __init__(self, modelDir = None):
         # set GPU fraction
         gpuOptions = tf.GPUOptions(per_process_gpu_memory_fraction = config.GpuMemory)
         # allow tf to allocate device automatically
@@ -55,6 +55,8 @@ class SSD:
             self.optimizer = tf.train.AdamOptimizer(1e-3).minimize(self.totalLoss, global_step=self.global_step)
         newVars = tf.get_collection(tf.GraphKeys.VARIABLES, scope="optimizer")
         self.sess.run(tf.initialize_variables(newVars))
+        if modelDir is None:
+            modelDir = FLAGS.modelDir
 
         checkPoint = tf.train.get_checkpoint_state(modelDir)
         self.saver = tf.train.Saver()
@@ -199,10 +201,8 @@ def test(path):
 if __name__ == "__main__":
     flags.DEFINE_string("modelDir", "summaries/test0", "model directory")
     flags.DEFINE_integer("batchSize", 32, "batch size")
-    flags.DEFINE_boolean("display", True, "display relevant windows")
-    flags.DEFINE_string("mode", "", "train or test")
+    flags.DEFINE_string("mode", "train", "train or test")
     flags.DEFINE_string("imagePath", "", "path to image")
-
     if FLAGS.mode == "train":
         train()
     elif FLAGS.mode == "test":

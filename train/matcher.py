@@ -22,13 +22,13 @@ class matcher:
                         self.indexToIndices.append([o_i, y, x, i])
 
     def matchBoxes(self, predLabels, annotations):
-        """match default box and groundtruth box, generate negative sample"""
+        """match default box and groundTruth box, generate negative sample"""
         #form the list
         matches = [[[[None for i in range(config.layerBoxesNum[o])] for x in range(config.outShapes[o][1])]
                     for y in range(config.outShapes[o][2])]for o in range(len(layerBoxesNum))]
         posCnt = 0
 
-        for (groundTruthBox, id) in annotations:
+        for (groundTruthBox, index) in annotations:
             topMatch = (None, 0)
             for o in range(len(layerBoxesNum)):
                 #cal x,y range
@@ -45,7 +45,7 @@ class matcher:
                             box = config.defaults[o][x][y][i]
                             IOU = calIOU(groundTruthBox, centerToCorner(box))  # groundTruth is corner
                             if IOU >= config.thresholdIOU: #match positive sample and default box
-                                matches[o][x][y][i] = (groundTruthBox, id)
+                                matches[o][x][y][i] = (groundTruthBox, index)
                                 posCnt += 1
                             if IOU > topMatch[1]: #current IOU is better
                                 topMatch = ([o, x, y, i], IOU)
@@ -54,7 +54,7 @@ class matcher:
             # if box's IOU is <0.5 but is the best
             if topBox is not None and matches[topBox[0]][topBox[1]][topBox[2]][topBox[3]] is None:
                 posCnt += 1
-                matches[topBox[0]][topBox[1]][topBox[2]][topBox[3]] = (groundTruthBox, id)
+                matches[topBox[0]][topBox[1]][topBox[2]][topBox[3]] = (groundTruthBox, index)
 
         negativeMax = posCnt * negPosRatio
         negCnt = 0

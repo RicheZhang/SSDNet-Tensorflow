@@ -1,6 +1,6 @@
 # coding: UTF-8
 '''''''''''''''''''''''''''''''''''''''''''''''''''''
-   file name: vgg19.py
+   file name: vggSSD.py
    create time: 2017年04月13日 星期四 10时40分26秒
    author: Jipeng Huang
    e-mail: huangjipengnju@gmail.com
@@ -9,102 +9,122 @@
 #VGG for SSD
 import tensorflow as tf
 import numpy as np
-# define different layer functions
-# we usually don't do convolution and pooling on batch and channel
-def maxPoolLayer(x, kHeight, kWidth, strideX, strideY, name, padding = "SAME"):
-    """max-pooling"""
-    return tf.nn.max_pool(x, ksize = [1, kHeight, kWidth, 1],
-                          strides = [1, strideX, strideY, 1], padding = padding, name = name)
+import inspect
+import os
+import time
 
-def dropout(x, keepPro, name = None):
-    """dropout"""
-    return tf.nn.dropout(x, keepPro, name)
+VGG_MEAN = [103.939, 116.779, 123.68]
 
-def fcLayer(x, inputD, outputD, reluFlag, name):
-    """fully-connect"""
-    with tf.variable_scope(name) as scope:
-        w = tf.get_variable("w", shape = [inputD, outputD], dtype = "float")
-        b = tf.get_variable("b", [outputD], dtype = "float")
-        out = tf.nn.xw_plus_b(x, w, b, name = scope.name)
-        if reluFlag:
-            return tf.nn.relu(out)
-        else:
-            return out
 
-def convLayer(x, kHeight, kWidth, strideX, strideY,
-              featureNum, name, padding = "SAME"):
-    """convolution"""
-    channel = int(x.get_shape()[-1])
-    with tf.variable_scope(name) as scope:
-        w = tf.get_variable("w", shape = [kHeight, kWidth, channel, featureNum])
-        b = tf.get_variable("b", shape = [featureNum])
-        featureMap = tf.nn.conv2d(x, w, strides = [1, strideY, strideX, 1], padding = padding)
-        out = tf.nn.bias_add(featureMap, b)
-        return tf.nn.relu(tf.reshape(out, featureMap.get_shape().as_list()), name = scope.name)
+class Vgg16:
+    def __init__(self, vgg16_npy_path=None):
+        if vgg16_npy_path is None:
+            path = inspect.getfile(Vgg16)
+            path = os.path.abspath(os.path.join(path, os.pardir))
+            path = os.path.join(path, "vgg16.npy")
+            vgg16_npy_path = path
 
-class VGG19(object):
-    """VGG model"""
-    def __init__(self, x, keepPro, classNum, skip, modelPath = "vgg19.npy"):
-        self.X = x
-        self.KEEPPRO = keepPro
-        self.CLASSNUM = classNum
-        self.SKIP = skip
-        self.MODELPATH = modelPath
-        #build CNN
-        self.buildCNN()
+        self.data_dict = np.load(vgg16_npy_path, encoding='latin1').item()
+        print("npy file loaded")
 
-    def buildCNN(self):
-        """build model"""
-        conv1_1 = convLayer(self.X, 3, 3, 1, 1, 64, "conv1_1" )
-        conv1_2 = convLayer(conv1_1, 3, 3, 1, 1, 64, "conv1_2")
-        pool1 = maxPoolLayer(conv1_2, 2, 2, 2, 2, "pool1")
-
-        conv2_1 = convLayer(pool1, 3, 3, 1, 1, 128, "conv2_1")
-        conv2_2 = convLayer(conv2_1, 3, 3, 1, 1, 128, "conv2_2")
-        pool2 = maxPoolLayer(conv2_2, 2, 2, 2, 2, "pool2")
-
-        conv3_1 = convLayer(pool2, 3, 3, 1, 1, 256, "conv3_1")
-        conv3_2 = convLayer(conv3_1, 3, 3, 1, 1, 256, "conv3_2")
-        conv3_3 = convLayer(conv3_2, 3, 3, 1, 1, 256, "conv3_3")
-        conv3_4 = convLayer(conv3_3, 3, 3, 1, 1, 256, "conv3_4")
-        pool3 = maxPoolLayer(conv3_4, 2, 2, 2, 2, "pool3")
-
-        conv4_1 = convLayer(pool3, 3, 3, 1, 1, 512, "conv4_1")
-        conv4_2 = convLayer(conv4_1, 3, 3, 1, 1, 512, "conv4_2")
-        conv4_3 = convLayer(conv4_2, 3, 3, 1, 1, 512, "conv4_3")
-        self.conv4_4 = convLayer(conv4_3, 3, 3, 1, 1, 512, "conv4_4")
-        pool4 = maxPoolLayer(self.conv4_4, 2, 2, 2, 2, "pool4")
-
-        conv5_1 = convLayer(pool4, 3, 3, 1, 1, 512, "conv5_1")
-        conv5_2 = convLayer(conv5_1, 3, 3, 1, 1, 512, "conv5_2")
-        conv5_3 = convLayer(conv5_2, 3, 3, 1, 1, 512, "conv5_3")
-        self.conv5_4 = convLayer(conv5_3, 3, 3, 1, 1, 512, "conv5_4")
-
+    def build(self, rgb):
         """
-        pool5 = maxPoolLayer(conv5_4, 2, 2, 2, 2, "pool5")
-        #SSD don't have fcLayers
-        
-        fcIn = tf.reshape(pool5, [-1, 7*7*512])
-        fc6 = fcLayer(fcIn, 7*7*512, 4096, True, "fc6")
-        dropout1 = dropout(fc6, self.KEEPPRO)
-
-        fc7 = fcLayer(dropout1, 4096, 4096, True, "fc7")
-        dropout2 = dropout(fc7, self.KEEPPRO)
-
-        self.fc8 = fcLayer(dropout2, 4096, self.CLASSNUM, True, "fc8")
+        load variable from npy to build the VGG
+        :param rgb: rgb image [batch, height, width, 3] values scaled [0, 1]
         """
 
-    def loadModel(self, sess):
-        """load model"""
-        wDict = np.load(self.MODELPATH, encoding = "bytes").item()
-        #for layers in model
-        for name in wDict:
-            if name not in self.SKIP:
-                with tf.variable_scope(name, reuse = True):
-                    for p in wDict[name]:
-                        if len(p.shape) == 1:
-                            #bias
-                            sess.run(tf.get_variable('b', trainable = False).assign(p))
-                        else:
-                            #weights
-                            sess.run(tf.get_variable('w', trainable = False).assign(p))
+        start_time = time.time()
+        print("build model started")
+        rgb_scaled = rgb * 255.0
+
+        # Convert RGB to BGR
+        red, green, blue = tf.split(3, 3, rgb_scaled)
+        #assert red.get_shape().as_list()[1:] == [224, 224, 1]
+        #assert green.get_shape().as_list()[1:] == [224, 224, 1]
+        #assert blue.get_shape().as_list()[1:] == [224, 224, 1]
+        bgr = tf.concat(3, [
+            blue - VGG_MEAN[0],
+            green - VGG_MEAN[1],
+            red - VGG_MEAN[2],
+        ])
+        #assert bgr.get_shape().as_list()[1:] == [224, 224, 3]
+
+        self.conv1_1 = self.conv_layer(bgr, "conv1_1")
+        self.conv1_2 = self.conv_layer(self.conv1_1, "conv1_2")
+        self.pool1 = self.max_pool(self.conv1_2, 'pool1')
+
+        self.conv2_1 = self.conv_layer(self.pool1, "conv2_1")
+        self.conv2_2 = self.conv_layer(self.conv2_1, "conv2_2")
+        self.pool2 = self.max_pool(self.conv2_2, 'pool2')
+
+        self.conv3_1 = self.conv_layer(self.pool2, "conv3_1")
+        self.conv3_2 = self.conv_layer(self.conv3_1, "conv3_2")
+        self.conv3_3 = self.conv_layer(self.conv3_2, "conv3_3")
+        self.pool3 = self.max_pool(self.conv3_3, 'pool3')
+
+        self.conv4_1 = self.conv_layer(self.pool3, "conv4_1")
+        self.conv4_2 = self.conv_layer(self.conv4_1, "conv4_2")
+        self.conv4_3 = self.conv_layer(self.conv4_2, "conv4_3")
+        self.pool4 = self.max_pool(self.conv4_3, 'pool4')
+
+        self.conv5_1 = self.conv_layer(self.pool4, "conv5_1")
+        self.conv5_2 = self.conv_layer(self.conv5_1, "conv5_2")
+        self.conv5_3 = self.conv_layer(self.conv5_2, "conv5_3")
+        #self.pool5 = self.max_pool(self.conv5_3, 'pool5')
+
+        """
+        self.fc6 = self.fc_layer(self.pool5, "fc6")
+        assert self.fc6.get_shape().as_list()[1:] == [4096]
+        self.relu6 = tf.nn.relu(self.fc6)
+        self.fc7 = self.fc_layer(self.relu6, "fc7")
+        self.relu7 = tf.nn.relu(self.fc7)
+        self.fc8 = self.fc_layer(self.relu7, "fc8")
+        self.prob = tf.nn.softmax(self.fc8, name="prob")
+        """
+
+        self.data_dict = None
+        print("build model finished: %ds" % (time.time() - start_time))
+
+    def avg_pool(self, bottom, name):
+        return tf.nn.avg_pool(bottom, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME', name=name)
+
+    def max_pool(self, bottom, name):
+        return tf.nn.max_pool(bottom, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME', name=name)
+
+    def conv_layer(self, bottom, name):
+        with tf.variable_scope(name):
+            filt = self.get_conv_filter(name)
+
+            conv = tf.nn.conv2d(bottom, filt, [1, 1, 1, 1], padding='SAME')
+
+            conv_biases = self.get_bias(name)
+            bias = tf.nn.bias_add(conv, conv_biases)
+
+            relu = tf.nn.relu(bias)
+            return relu
+
+    def fc_layer(self, bottom, name):
+        with tf.variable_scope(name):
+            shape = bottom.get_shape().as_list()
+            dim = 1
+            for d in shape[1:]:
+                dim *= d
+            x = tf.reshape(bottom, [-1, dim])
+
+            weights = self.get_fc_weight(name)
+            biases = self.get_bias(name)
+
+            # Fully connected layer. Note that the '+' operation automatically
+            # broadcasts the biases.
+            fc = tf.nn.bias_add(tf.matmul(x, weights), biases)
+
+            return fc
+
+    def get_conv_filter(self, name):
+        return tf.constant(self.data_dict[name][0], name="filter")
+
+    def get_bias(self, name):
+        return tf.constant(self.data_dict[name][1], name="biases")
+
+    def get_fc_weight(self, name):
+        return tf.constant(self.data_dict[name][0], name="weights")

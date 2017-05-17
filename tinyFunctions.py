@@ -7,7 +7,6 @@
    github: https://github.com/hjptriplebee
 '''''''''''''''''''''''''''''''''''''''''''''''''''''
 #some tiny functions, such as NMS, IOU...
-import numpy as np
 import cv2
 from config import inputSize, layerBoxesNum, outShapes
 def calOffset(default, truth):

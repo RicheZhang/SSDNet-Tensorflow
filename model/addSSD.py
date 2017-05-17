@@ -98,9 +98,8 @@ def defaultBox(shapes):
 def formatOutput(labels, bBoxes):
     """add bBoxes increment, return boxes and max confidence info"""
     #every layer, every position, every default box
-    boxes = [
-        [[[None for i in range(layerBoxesNum[o])] for x in range(outShapes[o][1])] for y in range(outShapes[o][2])]
-        for o in range(len(layerBoxesNum))]
+    boxes = [[[[None for i in range(layerBoxesNum[o])] for x in range(outShapes[o][1])]
+         for y in range(outShapes[o][2])] for o in range(len(layerBoxesNum))]
     confidences = []
     index = 0
     for o_i in range(len(layerBoxesNum)):
