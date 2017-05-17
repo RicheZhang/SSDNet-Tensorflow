@@ -126,6 +126,8 @@ def train():
 
 
         if step < 2000:
+            learningRate = 1e-2
+        elif step < 10000:
             learningRate = 1e-3
         elif step < 40000:
             learningRate = 1e-4
@@ -147,7 +149,7 @@ def train():
         summaryFloat(step, "bBox loss", bBoxesLoss, summaryWriter)
 
         if step % 1000 == 0:
-            ssd.saver.save(ssd.sess, "%s/ckpt" % FLAGS.model_dir, step)
+            ssd.saver.save(ssd.sess, "%s/ckpt" % FLAGS.modelDir, step)
 
 def prepareFeed(matches):
     """matches matrix to sample array"""
@@ -200,7 +202,7 @@ def test(path):
 
 if __name__ == "__main__":
     flags.DEFINE_string("modelDir", "summaries/test0", "model directory")
-    flags.DEFINE_integer("batchSize", 16, "batch size")
+    flags.DEFINE_integer("batchSize", 8, "batch size")
     flags.DEFINE_string("mode", "train", "train or test")
     flags.DEFINE_string("imagePath", "", "path to image")
     if FLAGS.mode == "train":

@@ -1,5 +1,5 @@
 #parameters
-inputSize = 300.0
+inputSize = 500.0
 classNum = 80
 bBoxLossAlpha = 1.0
 sMin = 0.2
