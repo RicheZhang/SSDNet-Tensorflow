@@ -21,11 +21,11 @@ import tensorflow as tf
 
 FLAGS = tf.app.flags.FLAGS
 
-train_ann_file = "~/deepLearning/dataset/coco/annotations/instances_train2014.json"
-train_dir = "~/deepLearning/dataset/coco/train2014"
+train_ann_file = "/home/hjp/deepLearning/dataset/coco/annotations/instances_train2014.json"
+train_dir = "/home/hjp/deepLearning/dataset/coco/train2014"
 
-val_ann_file = "~/deepLearning/dataset/coco/annotations/instances_val2014.json"
-val_dir = "~/deepLearning/dataset/coco/val2014"
+val_ann_file = "/home/hjp/deepLearning/dataset/coco/annotations/instances_val2014.json"
+val_dir = "/home/hjp/deepLearning/dataset/coco/val2014"
 
 class Loader:
     def __init__(self, train=True):
@@ -103,7 +103,7 @@ class Loader:
                     box[1] -= p_y
 
             # warning: this function turns 255 -> 1.0
-            resized_img = skimage.transform.resize(sample, (inputSize, inputSize))
+            resized_img = skimage.transform.resize(sample, (inputSize, inputSize), mode = "constant")
 
             for box, id in anns:
                 scaleX = 1.0 / float(sample.shape[1])

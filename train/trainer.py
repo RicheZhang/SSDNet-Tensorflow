@@ -54,7 +54,7 @@ class SSD:
 
             self.optimizer = tf.train.AdamOptimizer(1e-3).minimize(self.totalLoss, global_step=self.global_step)
         newVars = tf.get_collection(tf.GraphKeys.VARIABLES, scope="optimizer")
-        self.sess.run(tf.initialize_variables(newVars))
+        self.sess.run(tf.variables_initializer(newVars))
         if modelDir is None:
             modelDir = FLAGS.modelDir
 
@@ -107,7 +107,7 @@ def train():
     boxMatcher = matcher.matcher()
 
     while True:
-        batch = trainBatches.next()
+        batch = trainBatches.__next__()
         images, annotations = trainLoader.preprocess_batch(batch)
         labelsGroup, bBoxesIncrement, step = ssd.sess.run([ssd.labels, ssd.bBoxes, ssd.global_step],
                                                            feed_dict={ssd.images: images, ssd.bn: False})
@@ -200,7 +200,7 @@ def test(path):
 
 if __name__ == "__main__":
     flags.DEFINE_string("modelDir", "summaries/test0", "model directory")
-    flags.DEFINE_integer("batchSize", 32, "batch size")
+    flags.DEFINE_integer("batchSize", 16, "batch size")
     flags.DEFINE_string("mode", "train", "train or test")
     flags.DEFINE_string("imagePath", "", "path to image")
     if FLAGS.mode == "train":

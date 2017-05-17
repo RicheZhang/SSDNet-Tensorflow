@@ -17,8 +17,11 @@ def model(sess):
     bnTrain = tf.placeholder(tf.bool)
 
     vgg = vggSSD.VGG19()
+    with tf.name_scope("contentVGG"):
+        vgg.build(images)
 
     with tf.variable_scope("SSD_extension"):
+
         conv6 = addSSD.convLayerSSD(vgg.conv5_4, bnTrain, 3, 3, 1, 1, 1024, name = "conv6")
         conv7 = addSSD.convLayerSSD(conv6, bnTrain, 1, 1, 1, 1, 1024, name = "conb7")
 
@@ -31,7 +34,7 @@ def model(sess):
         conv10_1 = addSSD.convLayerSSD(conv9_2, bnTrain, 1, 1, 1, 1, 128, name = "conv10_1")
         conv10_2 = addSSD.convLayerSSD(conv10_1, bnTrain, 3, 3, 2, 2, 256, name = "conv10_2")
 
-        pool11 = tf.nn.avg_pool(conv10_2, [1, 3, 3, 1], [1, 1, 1, 1], "valid")
+        pool11 = tf.nn.avg_pool(conv10_2, [1, 3, 3, 1], [1, 1, 1, 1], "VALID")
 
         classes = classNum + 1
 
@@ -49,7 +52,7 @@ def model(sess):
                                    name="out6", reluFlag=False)
 
     newVars = tf.get_collection(tf.GraphKeys.VARIABLES, scope = "SSD_extension")
-    sess.run(tf.initialize_variables(newVars))
+    sess.run(tf.variables_initializer(newVars))
 
     outs = [out1, out2, out3, out4, out5, out6]
     outfs = []
@@ -61,7 +64,7 @@ def model(sess):
         else:
             outfs.append(tf.reshape(out, [-1, width * height * 6, classes + 4]))
 
-    outCube = tf.concat(1, outfs)
+    outCube = tf.concat(outfs, 1)
     labels = outCube[:,:,:classes]
     bBoxes = outCube[:,:,classes:]
 
